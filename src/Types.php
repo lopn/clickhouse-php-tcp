@@ -53,7 +53,6 @@ class Types
         $this->read  = $read;
     }
 
-
     public static function encodeIpv4($ip)
     {
         return ip2long($ip);

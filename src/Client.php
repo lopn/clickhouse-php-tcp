@@ -97,9 +97,8 @@ class Client
 
         $code = null;
         do {
-            if ($code === null) {
-                $code = $this->read->number();
-            }
+            $code = $this->read->number();
+//            var_dump("packet type:".$code);
             switch ($code) {
                 case Protocol::SERVER_HELLO:
                     $this->setServerInfo();
@@ -108,11 +107,14 @@ class Client
                     $this->readErr();
                     break;
                 case Protocol::SERVER_DATA:
-                    $n = $this->readData();
-                    if ($n > 1) {
-                        $code = $n;
-                    }
+                    $block = new Block();
+                    $block->readData($this->read,$this->types,$this->_row_data,$this->_total_row,$this->_server_info);
+//                    $n = $this->readData();
+//                    if ($n > 1) {
+//                        $code = $n;
+//                    }
                     continue 2;
+                    break;
                 case Protocol::SERVER_PROGRESS:
                     $_progress_info = [
                         'rows'       => $this->read->number(),
@@ -154,7 +156,7 @@ class Client
 
     private function gtV($v)
     {
-        return $this->_server_info['version'] >= $v;
+        return $this->_server_info['revision'] >= $v;
     }
 
 
@@ -167,6 +169,10 @@ class Client
     }
 
 
+    public function readMetaData(){}
+
+
+
     private function readData()
     {
         if (count($this->fields) === 0) {
@@ -176,6 +182,7 @@ class Client
         if ($row_count === 0) {
             return $code;
         }
+//        var_dump($this->fields);
         foreach ($this->fields as $t) {
             $f   = $this->read->string();
             $t   = $this->read->string();
@@ -206,9 +213,16 @@ class Client
             'row_count'    => $this->read->number(),
         ];
         if (count($this->fields) === 0) {
-            for ($i = 0; $i < $info['col_count']; $i++) {
-                $this->fields[$this->read->string()] = $this->read->string();
+//            var_dump($info);
+            for ($i = 0; $i < $info['col_count']; $i++) { // @todo 当有相同的列头时处理有bug
+                $colKey  = $this->read->string();
+                $colType = $this->read->string();
+
+                $this->fields[] = array($colKey,$colType);
             }
+//            var_dump( $this->fields);
+
+
         }
         return [0, $info['row_count']];
     }
@@ -219,7 +233,7 @@ class Client
             'name'          => $this->read->string(),
             'major_version' => $this->read->number(),
             'minor_version' => $this->read->number(),
-            'version'       => $this->read->number(),
+            'revision'       => $this->read->number(),
         ];
         $this->_server_info['time_zone'] = $this->gtV(self::DBMS_MIN_V_SERVER_TIMEZONE) ? $this->read->string() : '';
     }
